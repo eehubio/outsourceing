@@ -1,0 +1,362 @@
+// ezPLM 项目外包智能体 — 数据模型
+// 开发使用 SQLite，生产切换 Postgres（改 datasource.provider + DATABASE_URL 即可）。
+// 注意：SQLite 不支持原生 enum / 数组，故枚举以 String 存储，由应用层状态机约束；
+//      多值字段（技能、标签）以 JSON 字符串存储，读写经 lib/json.ts 封装。
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // 运行时：Neon 连接池连接串（主机名带 -pooler）
+  url       = env("DATABASE_URL")
+  // 迁移/db push：Neon 直连连接串（不带 -pooler）
+  directUrl = env("DIRECT_URL")
+}
+
+// ============ 身份与组织 ============
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  avatar    String?
+  // 密码哈希（bcrypt）。演示种子用户为 null（仅可演示登录），真实注册用户必填。
+  passwordHash String?
+  // 平台级角色：USER（普通） | REVIEWER（审核员） | ADMIN（管理员）
+  platformRole String @default("USER")
+  // 账户类型：provider（外包服务方/工程师） | publisher（甲方/发布方） | platform（平台）
+  accountType String @default("provider")
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships     OrganizationMember[]
+  providerProfile ProviderProfile?
+  publishedProjects OutsourcingProject[] @relation("ProjectCreator")
+  applications    ProjectApplication[]
+  messages        Message[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+}
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  type      String   @default("company") // company | lab | team | individual
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members  OrganizationMember[]
+  projects OutsourcingProject[]
+}
+
+model OrganizationMember {
+  id      String @id @default(cuid())
+  orgId   String
+  userId  String
+  // 组织内角色：OWNER | ADMIN | MEMBER
+  role    String @default("MEMBER")
+  org     Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user    User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([orgId, userId])
+}
+
+// ============ 服务方档案 ============
+model ProviderProfile {
+  id          String  @id @default(cuid())
+  userId      String  @unique
+  user        User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  displayName String
+  providerType String @default("individual") // individual | studio | company | lab
+  region      String?
+  languages   String  @default("[]") // JSON string[]
+  skills      String  @default("[]") // JSON string[]
+  tools       String  @default("[]") // JSON string[]
+  bio         String?
+  canInvoice  Boolean @default(false)
+  supportsOnsite Boolean @default(false)
+  supportsProduction Boolean @default(false)
+  verifiedReal   Boolean @default(false)
+  verifiedCompany Boolean @default(false)
+  // 历史指标：演示数据为 0/未认证，不伪造
+  completedProjects Int @default(0)
+  isDemo      Boolean @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  cases ProviderCase[]
+}
+
+model ProviderCase {
+  id         String @id @default(cuid())
+  profileId  String
+  profile    ProviderProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  title      String
+  description String?
+  link       String?
+  createdAt  DateTime @default(now())
+}
+
+// ============ 外包项目 + 版本快照 ============
+model OutsourcingProject {
+  id          String   @id @default(cuid())
+  orgId       String
+  org         Organization @relation(fields: [orgId], references: [id])
+  creatorId   String
+  creator     User     @relation("ProjectCreator", fields: [creatorId], references: [id])
+
+  title       String
+  projectType String   @default("hardware") // 见 lib/constants PROJECT_TYPES
+  industry    String?
+  budgetRange String   @default("面议")
+  durationText String  @default("")
+  skills      String   @default("[]") // JSON string[]
+  tags        String   @default("[]") // JSON string[]
+  location    String   @default("远程")
+
+  // 可见性：public | summary_login | summary_apply | nda | invite_only | org_only
+  visibility  String   @default("summary_apply")
+  needNda     Boolean  @default(false)
+
+  // 状态机：见 lib/state-machines/project
+  status      String   @default("draft")
+  reviewNote  String?
+
+  // 费用（沿用 v1 规则：预算中值×1% + ¥10）
+  feeTotal    Int      @default(0)
+  paid        Boolean  @default(false)
+  payOrderNo  String?
+
+  // ezPLM 移交结果
+  ezplmLink   EzplmProjectLink?
+
+  isDemo      Boolean  @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  versions     ProjectVersion[]
+  applications ProjectApplication[]
+  cooperation  CooperationConfirmation?
+  reviews      ProjectReview[]
+  favorites    ProjectFavorite[]
+}
+
+// 每次提交审核 / 重大编辑生成一个版本快照，申请关联到具体版本
+model ProjectVersion {
+  id         String @id @default(cuid())
+  projectId  String
+  project    OutsourcingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionNo  Int
+  // 结构化需求书（PRD）整体存为 JSON，字段见 lib/prd.ts
+  requirement String @default("{}")
+  completeness Int   @default(0) // AI 完整度评分 0-100（第一轮用规则估算）
+  createdById String
+  createdAt  DateTime @default(now())
+
+  applications ProjectApplication[]
+
+  @@unique([projectId, versionNo])
+}
+
+model ProjectReview {
+  id        String @id @default(cuid())
+  projectId String
+  project   OutsourcingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  reviewerId String
+  decision  String   // approve | reject | revision_required
+  note      String?
+  createdAt DateTime @default(now())
+}
+
+model ProjectFavorite {
+  id        String @id @default(cuid())
+  projectId String
+  userId    String
+  project   OutsourcingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  @@unique([projectId, userId])
+}
+
+// ============ 申请 + 方案 ============
+model ProjectApplication {
+  id         String @id @default(cuid())
+  projectId  String
+  project    OutsourcingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionId  String?  // 申请时项目的版本，用于"需求已变化"提示
+  version    ProjectVersion? @relation(fields: [versionId], references: [id])
+  applicantId String
+  applicant  User @relation(fields: [applicantId], references: [id])
+
+  // 结构化方案（见 lib/schemas applicationProposal）存 JSON
+  proposal   String @default("{}")
+  quote      String @default("")
+  durationText String @default("")
+  validUntil String?
+
+  // 状态机：见 lib/state-machines/application
+  status     String @default("draft")
+  // 甲方多选标记：被选为合适人选（可多个），独立于 status 流程
+  selected   Boolean @default(false)
+
+  isDemo     Boolean @default(false)
+  deletedAt  DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  conversation   Conversation?
+  statusHistory  ApplicationStatusHistory[]
+
+  @@unique([projectId, applicantId])
+}
+
+model ApplicationStatusHistory {
+  id           String @id @default(cuid())
+  applicationId String
+  application  ProjectApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  fromStatus   String?
+  toStatus     String
+  actorId      String
+  note         String?
+  createdAt    DateTime @default(now())
+}
+
+// ============ 前期沟通工作台 ============
+model Conversation {
+  id           String @id @default(cuid())
+  applicationId String @unique
+  application  ProjectApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdAt    DateTime @default(now())
+
+  participants ConversationParticipant[]
+  messages     Message[]
+  clarifications ClarificationQuestion[]
+}
+
+model ConversationParticipant {
+  id            String @id @default(cuid())
+  conversationId String
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  userId        String
+  role          String // publisher | provider | platform
+  lastReadAt    DateTime?
+  @@unique([conversationId, userId])
+}
+
+model Message {
+  id            String @id @default(cuid())
+  conversationId String
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderId      String
+  sender        User   @relation(fields: [senderId], references: [id])
+  kind          String @default("text") // text | system | file
+  body          String
+  createdAt     DateTime @default(now())
+}
+
+model ClarificationQuestion {
+  id            String @id @default(cuid())
+  conversationId String
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  question      String
+  answer        String?
+  askedById     String
+  answeredById  String?
+  affectsScope  Boolean @default(false)
+  status        String  @default("open") // open | answered | confirmed | deferred
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============ 合作确认 ============
+model CooperationConfirmation {
+  id            String @id @default(cuid())
+  projectId     String @unique
+  project       OutsourcingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  applicationId String
+  // 状态机：not_started | publisher_confirmed | provider_confirmed | both_confirmed | cancelled | transferred
+  status        String @default("not_started")
+  // 合作摘要快照 JSON
+  summary       String @default("{}")
+  publisherConfirmedAt DateTime?
+  providerConfirmedAt  DateTime?
+  ndaRequired   Boolean @default(false)
+  ndaPublisherSignedAt DateTime?
+  ndaProviderSignedAt  DateTime?
+  ndaSignedAt   DateTime?
+  ndaVersion    String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items ConfirmationItem[]
+}
+
+model ConfirmationItem {
+  id            String @id @default(cuid())
+  cooperationId String
+  cooperation   CooperationConfirmation @relation(fields: [cooperationId], references: [id], onDelete: Cascade)
+  label         String
+  value         String?
+  // pending | publisher_confirmed | provider_confirmed | both_confirmed
+  status        String @default("pending")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ============ ezPLM 集成 ============
+model EzplmProjectLink {
+  id            String @id @default(cuid())
+  projectId     String @unique
+  project       OutsourcingProject @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  ezplmOrgId    String?
+  ezplmProjectId String?
+  link          String?
+  // not_started | syncing | success | failed | partial_success
+  syncStatus    String @default("not_started")
+  syncError     String?
+  idempotencyKey String? @unique
+  createdById   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  syncLogs IntegrationSyncLog[]
+}
+
+model IntegrationSyncLog {
+  id        String @id @default(cuid())
+  linkId    String
+  link      EzplmProjectLink @relation(fields: [linkId], references: [id], onDelete: Cascade)
+  action    String
+  status    String
+  detail    String?
+  createdAt DateTime @default(now())
+}
+
+// ============ 审计 + 通知 ============
+model AuditLog {
+  id        String @id @default(cuid())
+  actorId   String?
+  actor     User?  @relation(fields: [actorId], references: [id])
+  action    String       // 如 project.publish, application.shortlist
+  entity    String       // 如 OutsourcingProject
+  entityId  String
+  detail    String?      // JSON
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+}
+
+model Notification {
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String?
+  link      String?
+  read      Boolean @default(false)
+  createdAt DateTime @default(now())
+}
