@@ -17,8 +17,7 @@ export default function RegisterPage() {
     setErr(''); setBusy(true);
     try {
       await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, accountType }) });
-      router.push('/outsourcing');
-      router.refresh();
+      window.location.href = '/outsourcing';
     } catch (e) { setErr((e as Error).message); setBusy(false); }
   };
 

@@ -1,14 +1,12 @@
 'use client';
 
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { api, PROJECT_STATUS_LABEL } from './client';
+import { useMe, type Me } from './MeProvider';
 
-export interface Me { id: string; name: string; email: string; platformRole: string; accountType: string }
+export { useMe, type Me } from './MeProvider';
 interface DemoUser { id: string; name: string; platformRole: string }
-
-const MeCtx = createContext<{ me: Me | null; org: any; reload: () => void }>({ me: null, org: null, reload: () => {} });
-export const useMe = () => useContext(MeCtx);
 
 export function Pill({ status, label }: { status: string; label?: string }) {
   return <span className={'pill pill-' + status}>{label ?? PROJECT_STATUS_LABEL[status] ?? status}</span>;
@@ -41,17 +39,12 @@ const NAV = [
 ];
 
 export function Shell({ title, children }: { title: string; children: React.ReactNode }) {
-  const [me, setMe] = useState<Me | null>(null);
-  const [org, setOrg] = useState<any>(null);
+  const { me, reload } = useMe();
   const [demoUsers, setDemoUsers] = useState<DemoUser[]>([]);
   const router = useRouter();
   const pathname = usePathname();
 
-  const reload = () => {
-    api<{ user: Me | null; org: any }>('/api/auth/me').then((d) => { setMe(d.user); setOrg(d.org); });
-  };
   useEffect(() => {
-    reload();
     api<{ users: DemoUser[] }>('/api/auth/demo-users').then((d) => setDemoUsers(d.users)).catch(() => {});
   }, []);
 
@@ -72,8 +65,7 @@ export function Shell({ title, children }: { title: string; children: React.Reac
   const isReal = me && !demoUsers.some((u) => u.id === me.id);
 
   return (
-    <MeCtx.Provider value={{ me, org, reload }}>
-      <div className="app">
+    <div className="app">
         <aside className="sidebar">
           <div className="brand">
             <div className="brand-logo">eP</div>
@@ -127,7 +119,6 @@ export function Shell({ title, children }: { title: string; children: React.Reac
           <div className="content">{children}</div>
         </div>
       </div>
-    </MeCtx.Provider>
   );
 }
 

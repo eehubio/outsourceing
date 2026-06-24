@@ -15,8 +15,8 @@ export default function LoginPage() {
     setErr(''); setBusy(true);
     try {
       await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      router.push('/outsourcing');
-      router.refresh();
+      // 用整页跳转，确保带上新会话 cookie 重新加载登录态
+      window.location.href = '/outsourcing';
     } catch (e) { setErr((e as Error).message); setBusy(false); }
   };
 
