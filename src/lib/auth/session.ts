@@ -15,8 +15,11 @@ function verify(token: string): string | null {
   const payload = token.slice(0, i);
   const sig = token.slice(i + 1);
   const expected = crypto.createHmac('sha256', SECRET).update(payload).digest('base64url');
+  const sigBuf = Buffer.from(sig);
+  const expBuf = Buffer.from(expected);
+  if (sigBuf.length !== expBuf.length) return null;
   try {
-    if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+    if (!crypto.timingSafeEqual(sigBuf, expBuf)) return null;
   } catch { return null; }
   return payload;
 }
@@ -31,6 +34,18 @@ export interface SessionUser {
 
 export function issueSession(userId: string): string { return sign(userId); }
 export function sessionCookieName() { return COOKIE; }
+
+// 统一的 cookie 选项：生产环境 HTTPS 必须 secure，否则浏览器在跳转后可能丢弃；
+// 显式 maxAge 让会话持久化（默认会话级 cookie 在某些场景下不稳定）。
+export function sessionCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: 'lax' as const,
+    path: '/',
+    secure: process.env.NODE_ENV === 'production',
+    maxAge: 60 * 60 * 24 * 30, // 30 天
+  };
+}
 
 export async function getSessionUser(): Promise<SessionUser | null> {
   const token = cookies().get(COOKIE)?.value;

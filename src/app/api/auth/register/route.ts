@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { registerUser } from '@/lib/auth/credentials';
-import { issueSession, sessionCookieName } from '@/lib/auth/session';
+import { issueSession, sessionCookieName, sessionCookieOptions } from '@/lib/auth/session';
 import { ok, handleError } from '@/lib/api';
 import { z } from 'zod';
 export const dynamic = 'force-dynamic';
@@ -13,7 +13,7 @@ export async function POST(req: Request) {
     const body = schema.parse(await req.json());
     const user = await registerUser(body);
     const token = issueSession(user.id);
-    cookies().set(sessionCookieName(), token, { httpOnly: true, sameSite: 'lax', path: '/' });
+    cookies().set(sessionCookieName(), token, sessionCookieOptions());
     return ok({ user: { id: user.id, name: user.name, accountType: user.accountType, platformRole: user.platformRole } }, 201);
   } catch (e) { return handleError(e); }
 }

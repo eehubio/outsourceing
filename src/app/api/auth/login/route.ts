@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 import { getRepo } from '@/lib/repo';
 import { loginUser } from '@/lib/auth/credentials';
-import { issueSession, sessionCookieName, HttpError } from '@/lib/auth/session';
+import { issueSession, sessionCookieName, sessionCookieOptions, HttpError } from '@/lib/auth/session';
 import { ok, handleError } from '@/lib/api';
 export const dynamic = 'force-dynamic';
 export async function POST(req: Request) {
@@ -18,7 +18,7 @@ export async function POST(req: Request) {
       user = await loginUser({ email: body.email, password: body.password });
     }
     const token = issueSession(user.id);
-    cookies().set(sessionCookieName(), token, { httpOnly: true, sameSite: 'lax', path: '/' });
+    cookies().set(sessionCookieName(), token, sessionCookieOptions());
     return ok({ user: { id: user.id, name: user.name, accountType: (user as any).accountType, platformRole: user.platformRole } });
   } catch (e) { return handleError(e); }
 }
