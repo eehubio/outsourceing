@@ -68,7 +68,13 @@ export default function ProjectDetailPage() {
       </div>
 
       {!me ? (
-        <div className="banner banner-info">请在右上角选择演示身份后申请。</div>
+        <div className="banner banner-info">
+          请先登录或注册后申请。
+          <div style={{ marginTop: 8, display: 'flex', gap: 8 }}>
+            <button className="btn btn-primary btn-sm" onClick={() => router.push('/login')}>登录</button>
+            <button className="btn btn-outline btn-sm" onClick={() => router.push('/register')}>注册</button>
+          </div>
+        </div>
       ) : isOwner ? (
         <div className="banner banner-info">这是你发布的项目。前往「我发布的」管理申请与合作确认。</div>
       ) : myApp ? (
