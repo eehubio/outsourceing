@@ -60,6 +60,13 @@ export const prismaRepo: Repo = {
     const m = await prisma.organizationMember.findFirst({ where: { userId }, include: { org: true } });
     return (m?.org ?? null) as any;
   },
+  async ensurePersonalOrg(userId, name) {
+    const existing = await prisma.organizationMember.findFirst({ where: { userId }, include: { org: true } });
+    if (existing?.org) return existing.org as any;
+    const org = await prisma.organization.create({ data: { name, type: 'personal' } });
+    await prisma.organizationMember.create({ data: { orgId: org.id, userId, role: 'OWNER' } });
+    return org as any;
+  },
   async getProviderProfile(userId) {
     const p = await prisma.providerProfile.findUnique({ where: { userId } });
     if (!p) return null;

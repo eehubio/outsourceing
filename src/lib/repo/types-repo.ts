@@ -22,6 +22,7 @@ export interface Repo {
   listDemoUsers(): Promise<User[]>;
   getOrgMember(orgId: string, userId: string): Promise<OrganizationMember | null>;
   getUserPrimaryOrg(userId: string): Promise<Organization | null>;
+  ensurePersonalOrg(userId: string, name: string): Promise<Organization>;
   getProviderProfile(userId: string): Promise<ProviderProfile | null>;
   getOrganization(id: string): Promise<Organization | null>;
 

@@ -185,6 +185,15 @@ export const memoryRepo: Repo = {
     const m = db.members.find((x) => x.userId === userId);
     return m ? db.orgs.find((o) => o.id === m.orgId) ?? null : null;
   },
+  async ensurePersonalOrg(userId, name) {
+    await seed();
+    const existing = db.members.find((x) => x.userId === userId);
+    if (existing) { const o = db.orgs.find((o) => o.id === existing.orgId); if (o) return o; }
+    const org: T.Organization = { id: uid('org'), name, type: 'personal', isDemo: false };
+    db.orgs.push(org);
+    db.members.push({ id: uid('mem'), orgId: org.id, userId, role: 'OWNER' });
+    return org;
+  },
   async getProviderProfile(userId) { await seed(); return db.providers.find((p) => p.userId === userId) ?? null; },
   async getOrganization(id) { await seed(); return db.orgs.find((o) => o.id === id) ?? null; },
 

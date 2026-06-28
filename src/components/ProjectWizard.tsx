@@ -100,7 +100,9 @@ export default function ProjectWizard({ initial, mode }: { initial?: WizardIniti
       let pid = createdId;
       if (pid) await api(`/api/outsourcing/projects/${pid}`, { method: 'PATCH', body: JSON.stringify(payload()) });
       else { const d = await api<{ project: any }>('/api/outsourcing/projects', { method: 'POST', body: JSON.stringify(payload()) }); pid = d.project.id; setCreatedId(pid); }
-      setShowPay(true);
+      // 试用阶段：免费发布，跳过支付，直接提交平台审核
+      await api(`/api/outsourcing/projects/${pid}/submit`, { method: 'POST' });
+      router.push('/outsourcing/projects');
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
 
@@ -110,7 +112,7 @@ export default function ProjectWizard({ initial, mode }: { initial?: WizardIniti
     <div style={{ maxWidth: 820 }}>
       <div className="page-head">
         <div className="page-title">{mode === 'edit' ? '编辑项目需求' : '发布外包项目'}</div>
-        <div className="page-sub">按需求书结构逐步完善，支付发布费后由平台审核，通过即在广场展示。</div>
+        <div className="page-sub">按需求书结构逐步完善，提交后由平台审核，通过即在广场展示。</div>
       </div>
 
       <div className="wsteps">
@@ -217,7 +219,7 @@ export default function ProjectWizard({ initial, mode }: { initial?: WizardIniti
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button className="btn btn-outline" disabled={busy} onClick={saveDraft}>存为草稿</button>
-          {step < STEPS.length - 1 ? <button className="btn btn-primary" onClick={next}>下一步 →</button> : <button className="btn btn-primary" disabled={busy} onClick={finish}>完成，去支付 →</button>}
+          {step < STEPS.length - 1 ? <button className="btn btn-primary" onClick={next}>下一步 →</button> : <button className="btn btn-primary" disabled={busy} onClick={finish}>完成，提交审核 →</button>}
         </div>
       </div>
 

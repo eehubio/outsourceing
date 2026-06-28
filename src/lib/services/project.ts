@@ -75,8 +75,9 @@ export async function createProject(user: SessionUser, input: {
     const m = await repo().getOrgMember(orgId, user.id);
     assert(!!m, 403, '无权使用该组织发布');
   } else {
-    const org = await repo().getUserPrimaryOrg(user.id);
-    assert(!!org, 400, '当前用户没有可用组织，请先在 ezPLM 创建/加入组织');
+    // 试用阶段：用户没有组织时自动创建个人组织（不再强制先在 ezPLM 创建/加入组织）
+    let org = await repo().getUserPrimaryOrg(user.id);
+    if (!org) org = await repo().ensurePersonalOrg(user.id, `${user.name} 的工作空间`);
     orgId = org.id;
   }
   const completeness = (await getAiService().analyzeRequirementCompleteness(input.prd)).score;
@@ -139,7 +140,7 @@ export async function reviewProject(user: SessionUser, id: string, decision: 'ap
   // 审核前要求已支付
   const project = await repo().getProject(id);
   assert(!!project, 404, '项目不存在');
-  assert(project!.paid, 409, '该项目尚未支付发布费');
+  // 试用阶段：免费发布，暂不校验是否已支付（后期恢复 assert(project!.paid)）
   if (note) await repo().updateProjectFields(id, { reviewNote: note });
   return transition(user, id, decision, note);
 }
