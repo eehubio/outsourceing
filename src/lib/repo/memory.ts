@@ -236,6 +236,11 @@ export const memoryRepo: Repo = {
     p.status = status; p.updatedAt = now();
     return decorate(p);
   },
+  async softDeleteProject(id) {
+    await seed();
+    const p = db.projects.find((x) => x.id === id);
+    if (p) { p.deletedAt = now(); p.updatedAt = now(); }
+  },
   async addProjectVersion(projectId, prd, completeness, createdById) {
     await seed();
     const versions = db.versions.filter((v) => v.projectId === projectId);

@@ -145,6 +145,17 @@ export async function reviewProject(user: SessionUser, id: string, decision: 'ap
   return transition(user, id, decision, note);
 }
 
+export async function deleteProject(user: SessionUser, id: string) {
+  const project = await repo().getProject(id);
+  assert(!!project, 404, '项目不存在');
+  // 审核员/管理员可删除任意项目；发布方可删除自己的项目
+  const allowed = isReviewer(user) || (await isProjectOwner(user, id));
+  assert(allowed, 403, '无权删除该项目');
+  await repo().softDeleteProject(id);
+  await repo().audit(user.id, 'project.delete', 'OutsourcingProject', id, { status: project!.status });
+  return { ok: true };
+}
+
 export async function payProject(user: SessionUser, id: string, method: string) {
   const project = await repo().getProject(id);
   assert(!!project, 404, '项目不存在');

@@ -109,6 +109,9 @@ export const prismaRepo: Repo = {
     const p = await prisma.outsourcingProject.update({ where: { id }, data: { status } });
     return decorate(p);
   },
+  async softDeleteProject(id) {
+    await prisma.outsourcingProject.update({ where: { id }, data: { deletedAt: new Date() } });
+  },
   async addProjectVersion(projectId, prd, completeness, createdById) {
     const count = await prisma.projectVersion.count({ where: { projectId } });
     const v = await prisma.projectVersion.create({ data: { projectId, versionNo: count + 1, requirement: toJson(prd), completeness, createdById } });

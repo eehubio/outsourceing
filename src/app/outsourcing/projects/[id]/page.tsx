@@ -30,6 +30,16 @@ export default function ProjectDetailPage() {
   if (!project) return <Shell title="项目详情"><div className="empty">项目不存在</div></Shell>;
 
   const isOwner = me && project.creatorId === me.id;
+  const isReviewer = me && (me.platformRole === 'REVIEWER' || me.platformRole === 'ADMIN');
+  const canDelete = isOwner || isReviewer;
+
+  const doDelete = async () => {
+    if (!confirm('确定删除该项目？删除后将从广场和列表中移除，且不可恢复。')) return;
+    try {
+      await api(`/api/outsourcing/projects/${project.id}`, { method: 'DELETE' });
+      router.push('/outsourcing');
+    } catch (e) { setMsg((e as Error).message); }
+  };
 
   return (
     <Shell title="项目详情">
@@ -46,6 +56,9 @@ export default function ProjectDetailPage() {
             </div>
             <div className="page-title">{project.title}</div>
           </div>
+          {canDelete && (
+            <button className="btn btn-outline btn-sm" style={{ color: 'var(--danger, #e5484d)', borderColor: 'var(--danger, #e5484d)' }} onClick={doDelete}>删除项目</button>
+          )}
         </div>
         <div className="card-meta" style={{ borderTop: 'none', paddingTop: 12 }}>
           <span>💰 预算 {project.budgetRange}</span>

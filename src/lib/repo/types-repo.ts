@@ -40,6 +40,7 @@ export interface Repo {
     feeTotal: number; reviewNote: string | null; paid: boolean; payOrderNo: string;
   }>): Promise<OutsourcingProject>;
   setProjectStatus(id: string, status: string): Promise<OutsourcingProject>;
+  softDeleteProject(id: string): Promise<void>;
   // 新建版本快照（提交审核 / 重大编辑时）
   addProjectVersion(projectId: string, prd: Prd, completeness: number, createdById: string): Promise<ProjectVersion>;
   getCurrentVersion(projectId: string): Promise<ProjectVersion | null>;
