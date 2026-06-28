@@ -28,13 +28,18 @@ export function LoginPrompt({ note }: { note?: string }) {
   );
 }
 
+// show 规则：
+//   platform（审核员/管理员）：仅 项目广场 + 审核台
+//   publisher（发布方）：项目广场 + 我发布的 + 发布项目
+//   provider（服务方）：项目广场 + 我的申请
+//   未登录：仅 项目广场
 const NAV = [
   { group: '外包', items: [
-    { href: '/outsourcing', label: '项目广场', icon: '🔍', roles: ['all'] },
-    { href: '/outsourcing/projects', label: '我发布的', icon: '📥', roles: ['all'] },
-    { href: '/outsourcing/projects/new', label: '发布项目', icon: '＋', roles: ['all'] },
-    { href: '/outsourcing/applications', label: '我的申请', icon: '📨', roles: ['all'] },
-    { href: '/outsourcing/review', label: '审核台', icon: '📝', roles: ['REVIEWER', 'ADMIN'] },
+    { href: '/outsourcing', label: '项目广场', icon: '🔍', show: (_role: string, _acct: string) => true },
+    { href: '/outsourcing/projects', label: '我发布的', icon: '📥', show: (_r: string, acct: string) => acct === 'publisher' },
+    { href: '/outsourcing/projects/new', label: '发布项目', icon: '＋', show: (_r: string, acct: string) => acct === 'publisher' },
+    { href: '/outsourcing/applications', label: '我的申请', icon: '📨', show: (_r: string, acct: string) => acct === 'provider' },
+    { href: '/outsourcing/review', label: '审核台', icon: '📝', show: (role: string) => role === 'REVIEWER' || role === 'ADMIN' },
   ] },
 ];
 
@@ -77,7 +82,7 @@ export function Shell({ title, children }: { title: string; children: React.Reac
           {NAV.map((g) => (
             <div className="nav-group" key={g.group}>
               <div className="nav-group-title">{g.group}</div>
-              {g.items.filter((it) => it.roles.includes('all') || (me && it.roles.includes(me.platformRole))).map((it) => (
+              {g.items.filter((it) => it.show(me?.platformRole ?? '', me?.accountType ?? '')).map((it) => (
                 <button key={it.href}
                   className={'nav-item' + (pathname === it.href ? ' active' : '')}
                   onClick={() => router.push(it.href)}>

@@ -90,6 +90,8 @@ export default function ProjectDetailPage() {
         </div>
       ) : isOwner ? (
         <div className="banner banner-info">这是你发布的项目。前往「我发布的」管理申请与合作确认。</div>
+      ) : isReviewer ? (
+        <div className="banner banner-info">平台审核员/管理员视角：仅可审核与管理，不参与承接申请。</div>
       ) : myApp ? (
         <div className="banner banner-success">
           你已申请该项目，当前状态：{myApp.status}。

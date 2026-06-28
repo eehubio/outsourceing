@@ -69,6 +69,8 @@ export async function createProject(user: SessionUser, input: {
   title: string; projectType: string; industry?: string; budgetRange: string; durationText?: string;
   skills: string[]; tags: string[]; location: string; visibility: string; needNda: boolean; orgId?: string; prd: Prd;
 }) {
+  // 平台审核员/管理员不发布外包项目
+  assert(!isReviewer(user), 403, '平台审核员/管理员不可发布外包项目');
   let orgId = input.orgId;
   if (orgId) {
     // 校验用户属于该组织（不能凭前端传 orgId 越权）

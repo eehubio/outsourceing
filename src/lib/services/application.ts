@@ -13,6 +13,8 @@ export async function createApplication(user: SessionUser, projectId: string, in
 }) {
   const project = await repo().getProject(projectId);
   assert(!!project, 404, '项目不存在');
+  // 平台审核员/管理员不参与承接申请
+  assert(!isReviewer(user), 403, '平台审核员/管理员不可提交承接申请');
   assert(project!.status === 'published', 409, '该项目未在招募中，暂不可申请');
   // 不能申请自己发布的项目
   assert(!(await isProjectOwner(user, projectId)), 403, '不能申请自己发布的项目');
