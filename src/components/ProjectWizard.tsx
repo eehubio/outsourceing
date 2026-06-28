@@ -203,9 +203,8 @@ export default function ProjectWizard({ initial, mode }: { initial?: WizardIniti
             <div className="field"><label>保密协议</label><label className="check" style={{ marginTop: 6 }}><input type="checkbox" checked={f.needNda} onChange={(e) => set('needNda', e.target.checked)} />该项目要求签署 NDA 后方可转入 ezPLM</label></div>
           </div>
           <div className="fee">
-            <div className="fee-line"><span>预算服务费（{f.budgetRange} 估算 ¥{fee.budgetBase.toLocaleString()} × 1%）</span><span>¥{fee.pct.toLocaleString()}</span></div>
-            <div className="fee-line"><span>一次性发布费</span><span>¥{fee.flat}</span></div>
-            <div className="fee-total"><span>应付合计</span><span>¥{fee.total.toLocaleString()}</span></div>
+            <div className="fee-line"><span>🎁 试用阶段</span><span style={{ color: 'var(--success, #22c79c)', fontWeight: 600 }}>免费发布</span></div>
+            <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 6 }}>当前为免费试用，提交后由平台审核，通过即在广场展示。</div>
           </div>
         </>)}
       </div>
